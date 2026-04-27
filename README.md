@@ -1,5 +1,9 @@
 # PhINs : Pharmacometrics Informed Networks
 
+<p align="center">
+  <img src="./PhINs.png" alt="PhINs workflow" width="850"/>
+</p>
+
 **PhINs** is a research library for **Physics-Informed Neural Networks (PINNs)** and **Physics-Informed KANs / PIKANs** for inverse problems, gray-box discovery, hidden mechanism recovery, and mechanistic learning from sparse or partially observed data.
 
 It is built for workflows where you want to combine:
