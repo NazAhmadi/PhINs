@@ -42,7 +42,9 @@ PhINs is especially useful for:
 - [Loss weights](#loss-weights)
 - [Residual-based attention](#residual-based-attention)
 - [Adaptive loss weighting](#adaptive-loss-weighting)
-- [Typical examples](#typical-examples)
+- [Adaptive / random collocation sampling](#adaptive--random-collocation-sampling)
+- [Gradient computation and scalability](#gradient-computation-and-scalability)
+- [Typical examples](#typical-examples)(#typical-examples)
 - [Colab / Google Drive notes](#colab--google-drive-notes)
 - [Current status](#current-status)
 - [Citation / acknowledgement](#citation--acknowledgement)
@@ -112,7 +114,8 @@ The current core library supports:
 
 - full-state observations
 - initial-condition data
-- collocation points for residuals
+- fixed collocation points for residuals
+- random uniform collocation resampling during training
 - custom extra data losses for partial observations
 
 ### Loss components
@@ -130,6 +133,7 @@ The current core library supports:
 - static user-defined loss weights
 - optional residual-based attention, called RBA
 - optional adaptive loss weighting across terms
+- optional fixed or randomly resampled collocation points during training
 
 ---
 
@@ -181,6 +185,7 @@ phins/
 ├── models.py
 ├── optim.py
 ├── problem.py
+├── samplers.py
 └── trainer.py
 ```
 
@@ -195,6 +200,7 @@ Contains configuration dataclasses:
 - `ParameterSpec`
 - `RBAConfig`
 - `AdaptiveWeightConfig`
+- `CollocationConfig`
 - `TrainingConfig`
 - `DataConfig`
 - `PINNConfig`
@@ -234,6 +240,11 @@ Builds:
 - residual terms
 - optional extra losses
 - context dictionaries for residual functions
+- state derivatives using a Jacobian-based computation, while preserving the old `ctx["state_grads"][state_name]` API
+
+#### `samplers.py`
+
+Implements collocation sampling utilities, including uniform random collocation points over a user-defined domain.
 
 #### `trainer.py`
 
@@ -241,6 +252,7 @@ Runs:
 
 - optimization
 - learning-rate schedules
+- fixed or randomly resampled collocation points
 - residual-based attention
 - adaptive weighting
 - prediction
@@ -269,6 +281,8 @@ The library handles:
 - network creation
 - feature expansion
 - automatic differentiation of states
+- Jacobian-based computation of all state derivatives
+- fixed or randomly resampled collocation points
 - loss assembly
 - optimization
 - prediction
@@ -286,6 +300,9 @@ from phins import (
     TrainingConfig, DataConfig, ParameterSpec,
     PINNDataBundle, PINNProblem, PINNTrainer,
 )
+
+# Optional features can also be imported when needed:
+# from phins import RBAConfig, AdaptiveWeightConfig, CollocationConfig
 
 # --------------------------------------------------
 # 1. Data
@@ -391,7 +408,7 @@ PINNDataBundle(
 - `y_data`: observed values at those points
 - `t_ic`: input/time points where initial conditions are enforced
 - `y_ic`: initial-condition values
-- `t_collocation`: collocation points used for physics residuals
+- `t_collocation`: fixed collocation points used for physics residuals, or an initial/fallback set when random collocation is enabled
 - `metadata`: optional dictionary for extra user-defined information
 
 ### Shape convention
@@ -824,6 +841,89 @@ They can be used separately or together.
 
 ---
 
+## Adaptive / random collocation sampling
+
+PhINs supports both fixed collocation points and random collocation resampling during training.
+
+### Fixed collocation
+
+For fixed collocation, define the collocation points directly in `PINNDataBundle` and do not pass a `CollocationConfig`:
+
+```python
+bundle = PINNDataBundle(
+    t_data=t_data,
+    y_data=y_data,
+    t_ic=t_ic,
+    y_ic=y_ic,
+    t_collocation=jnp.linspace(0.0, 600.0, 201)[:, None],
+)
+```
+
+This uses the same 201 collocation points throughout training.
+
+### Random uniform collocation
+
+For random collocation, import `CollocationConfig`:
+
+```python
+from phins import CollocationConfig
+```
+
+Then add it inside `DataConfig`:
+
+```python
+data=DataConfig(
+    input_dim=1,
+    state_names=["G"],
+    parameter_specs=parameter_specs,
+    collocation=CollocationConfig(
+        sampling="uniform_random",
+        domain=(0.0, 600.0),
+        n_points=1001,
+        resample_every=1,
+    ),
+)
+```
+
+Here:
+
+- `sampling="uniform_random"` enables random collocation.
+- `domain=(0.0, 600.0)` defines the time interval.
+- `n_points=1001` samples 1001 collocation points.
+- `resample_every=1` redraws them every training epoch.
+
+The random sampler does not choose from a pre-made grid. It samples continuous points directly from the specified interval:
+
+```python
+t_col ~ Uniform(t_min, t_max)
+```
+
+The `t_collocation` stored in `PINNDataBundle` is still useful as an initial or fallback collocation set, so older scripts remain compatible.
+
+### When to use random collocation
+
+Fixed collocation is easier to reproduce and is a good default. Random collocation can help when the model overfits a small residual grid or when you want broader coverage of the time domain over training.
+
+---
+
+## Gradient computation and scalability
+
+The current `problem.py` computes state derivatives using a Jacobian-based implementation. This keeps the user-facing API unchanged:
+
+```python
+dG_dt = ctx["state_grads"]["G"]
+```
+
+Internally, the library can compute derivatives for all state outputs using one Jacobian evaluation rather than calling `jax.grad` separately for each state. This is more scalable for larger ODE systems with many states.
+
+For previous code, nothing changes. Existing residual functions that use `ctx["state_grads"][state_name]` continue to work.
+
+### Why this is useful
+
+Older implementations computed gradients separately for each state. For a model with many states, this could repeat the network forward pass many times. The Jacobian-based version computes derivatives for all outputs together, which reduces overhead and improves scalability for larger PK/PD/QSP systems.
+
+---
+
 ## Typical examples
 
 PhINs is suited for examples such as:
@@ -913,6 +1013,7 @@ Before using:
 
 - KAN
 - exponential features
+- random collocation
 - residual-based attention
 - adaptive loss weighting
 
@@ -927,10 +1028,12 @@ first make sure the problem works with:
 
 1. MLP + identity
 2. add bounded parameter mapping if needed
-3. add `sincos` or `exp` features if needed
-4. add RBA
-5. add adaptive loss weighting
-6. try KAN
+3. add fixed collocation with a moderate number of points
+4. add `sincos` or `exp` features if needed
+5. try random collocation if residual coverage is poor
+6. add adaptive loss weighting if loss terms are unbalanced
+7. add RBA if residual errors are localized
+8. try KAN
 
 ---
 
