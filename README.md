@@ -1,12 +1,13 @@
-# PhINs : Pharmacometrics Informed Networks
+# PhINs: Pharmacometrics Informed Networks
 
 <p align="center">
   <img src="./PhINs.png" alt="PhINs workflow" width="850"/>
 </p>
 
-**PhINs** is a research library for **Physics-Informed Neural Networks (PINNs)** and **Physics-Informed KANs / PIKANs** for inverse problems, gray-box discovery, hidden mechanism recovery, and mechanistic learning from sparse or partially observed data.
+**PhINs** is a research library for **Physics-Informed Neural Networks (PINNs)** and **Physics-Informed KANs / PIKAN-style Chebyshev-KANs** for inverse problems, gray-box discovery, hidden mechanism recovery, and mechanistic learning from sparse or partially observed data.
 
-It is built for workflows where you want to combine:
+It is designed for workflows that combine:
+
 - observed data
 - governing equations
 - unknown constant parameters
@@ -14,6 +15,7 @@ It is built for workflows where you want to combine:
 - interpretable mechanistic structure
 
 PhINs is especially useful for:
+
 - pharmacometrics
 - PK / PD / QSP
 - systems biology
@@ -38,48 +40,57 @@ PhINs is especially useful for:
 - [Partial observations](#partial-observations)
 - [Constraints and bounded mappings](#constraints-and-bounded-mappings)
 - [Loss weights](#loss-weights)
-- [RBA](#rba)
+- [Residual-based attention](#residual-based-attention)
 - [Adaptive loss weighting](#adaptive-loss-weighting)
 - [Typical examples](#typical-examples)
 - [Colab / Google Drive notes](#colab--google-drive-notes)
 - [Current status](#current-status)
+- [Citation / acknowledgement](#citation--acknowledgement)
+- [Contributing](#contributing)
 
 ---
 
 ## What PhINs can do
 
-PhINs supports the following modeling patterns:
+PhINs supports the following modeling patterns.
 
 ### 1. Forward physics-informed learning
-You know the governing equation and want a PINN solution.
+
+Use a neural network to solve a known governing equation.
 
 ### 2. Inverse parameter estimation
-You know the equation form, but some parameters are unknown and should be inferred from data.
+
+Estimate unknown constant parameters from data while enforcing the governing equations.
 
 ### 3. Time-varying parameter inference
-A parameter such as a rate, forcing, or transfer coefficient changes with time and must be learned as an extra network output.
+
+Learn a time-varying rate, forcing, interaction term, or transfer coefficient as an additional network output.
 
 ### 4. Gray-box discovery
-Part of the right-hand side is unknown and is learned as a neural function while the known mechanistic structure is preserved.
+
+Learn an unknown term in the right-hand side of an ODE while keeping the known mechanistic structure fixed.
 
 ### 5. Partially observed systems
-You may observe only a subset of the states while still enforcing the full dynamics.
 
-### 6. MLP vs PIKAN / Chebyshev-KAN comparison
-The same problem can be solved with either a standard MLP or a KAN-like architecture.
+Fit data from only a subset of states while enforcing the full system dynamics through residual losses.
+
+### 6. MLP vs KAN comparison
+
+Solve the same problem with either a standard MLP or a Chebyshev-KAN / PIKAN-style architecture.
 
 ---
 
 ## Package features
 
-PhINs currently includes support for:
-
 ### Architectures
+
+The current core library supports:
+
 - `mlp`
-- `chebyshev_kan`
-- `pikan` (alias / KAN-style usage depending on your version)
+- `kan` — Chebyshev-KAN / PIKAN-style architecture
 
 ### Feature expansions
+
 - `identity`
 - `sin`
 - `cos`
@@ -87,38 +98,38 @@ PhINs currently includes support for:
 - `exp`
 
 ### Parameter types
+
 - constant parameters
 - time-varying parameters
 
 ### Parameter constraints
+
 - `none`
 - `positive_softplus`
 - `positive_exp`
 
 ### Data settings
+
 - full-state observations
-- partial observations
-- custom observed-state losses
-- masked / sparse data workflows depending on version
+- initial-condition data
+- collocation points for residuals
+- custom extra data losses for partial observations
 
 ### Loss components
+
 - data loss
-- initial condition loss
+- initial-condition loss
 - residual loss
+- named residual subterms
 - extra custom losses
 
 ### Training options
+
 - optimizer selection
 - scheduler selection
 - static user-defined loss weights
-- optional **RBA** for residual terms
-- optional **adaptive loss weighting** across terms
-
-### Utilities
-- domain decomposition module
-- tutorial-style examples
-- problem/trainer abstraction
-- prediction API
+- optional residual-based attention, called RBA
+- optional adaptive loss weighting across terms
 
 ---
 
@@ -142,29 +153,17 @@ import phins
 
 ### Recommended Python packages
 
-Depending on your exact version of the repository, you will typically need:
+For the current core library, install:
 
 ```bash
 pip install jax jaxlib optax numpy scipy matplotlib pandas
 ```
 
-If your version includes extra research modules or older experiments, you may also need:
+If your repository also contains extra research scripts or older experiments, you may also need:
 
 ```bash
 pip install equinox jaxtyping lineax optimistix chex pyDOE tqdm
 ```
-
-### Minimal runtime dependencies for the core library
-For the core `phins` package and standard examples, the main requirements are usually:
-- `jax`
-- `jaxlib`
-- `optax`
-- `numpy`
-- `scipy`
-- `matplotlib`
-- `pandas`
-
-If you are using Google Colab, install missing packages first, then import the library.
 
 ---
 
@@ -178,7 +177,6 @@ phins/
 ├── config.py
 ├── constraints.py
 ├── data.py
-├── decomposition.py
 ├── features.py
 ├── models.py
 ├── optim.py
@@ -189,46 +187,63 @@ phins/
 ### Main files
 
 #### `config.py`
-Contains dataclasses such as:
+
+Contains configuration dataclasses:
+
 - `FeatureConfig`
 - `ArchitectureConfig`
 - `ParameterSpec`
+- `RBAConfig`
+- `AdaptiveWeightConfig`
 - `TrainingConfig`
 - `DataConfig`
 - `PINNConfig`
-- optionally `RBAConfig`
-- optionally `AdaptiveWeightConfig`
 
 #### `features.py`
+
 Implements feature expansion:
+
 - raw identity input
-- sine/cosine expansions
+- sine features
+- cosine features
+- sine/cosine features
 - exponential features
 
 #### `models.py`
-Implements neural architectures such as:
+
+Implements neural architectures:
+
 - MLP
-- Chebyshev-KAN / PIKAN
+- Chebyshev-KAN / PIKAN-style KAN
 
 #### `constraints.py`
+
 Handles:
-- splitting raw outputs into states and time-varying parameters
+
+- splitting raw network outputs into states and time-varying parameters
 - constant parameter transforms
 - positivity constraints
+- validation of time-varying parameter output indices
 
 #### `problem.py`
+
 Builds:
+
 - data loss
-- IC loss
+- initial-condition loss
 - residual terms
 - optional extra losses
+- context dictionaries for residual functions
 
 #### `trainer.py`
+
 Runs:
+
 - optimization
-- learning rate schedules
-- optional RBA
-- optional adaptive weighting
+- learning-rate schedules
+- residual-based attention
+- adaptive weighting
+- prediction
 
 ---
 
@@ -244,14 +259,16 @@ pred = trainer.predict(t_test)
 ```
 
 You provide:
-1. **configuration**
-2. **data bundle**
-3. **residual function**
+
+1. a configuration object
+2. a data bundle
+3. a residual function
 
 The library handles:
+
 - network creation
 - feature expansion
-- derivative computation
+- automatic differentiation of states
 - loss assembly
 - optimization
 - prediction
@@ -259,6 +276,8 @@ The library handles:
 ---
 
 ## Quick start
+
+This minimal example fits a one-state ODE:
 
 ```python
 import jax.numpy as jnp
@@ -294,7 +313,7 @@ def residual_fn(ctx, t):
     a = ctx["constant_params"]["a"]
 
     return {
-        "ode_x": dx + a * x
+        "ode_x": dx + a * x,
     }
 
 # --------------------------------------------------
@@ -354,9 +373,7 @@ x_pred = pred["states"]["x"]
 
 ## Defining data
 
-The main container is `PINNDataBundle`.
-
-Typical fields are:
+The main data container is `PINNDataBundle`.
 
 ```python
 PINNDataBundle(
@@ -369,16 +386,30 @@ PINNDataBundle(
 ```
 
 ### Meaning
-- `t_data`: time points where you have observations
-- `y_data`: observed data at those points
-- `t_ic`: times where initial conditions are enforced
-- `y_ic`: initial condition values
+
+- `t_data`: input/time points where observations are available
+- `y_data`: observed values at those points
+- `t_ic`: input/time points where initial conditions are enforced
+- `y_ic`: initial-condition values
 - `t_collocation`: collocation points used for physics residuals
+- `metadata`: optional dictionary for extra user-defined information
 
 ### Shape convention
+
 Usually:
-- `t_data.shape = (N, 1)`
-- `y_data.shape = (N, n_observed_states)`
+
+```python
+t_data.shape == (N, input_dim)
+y_data.shape == (N, n_states_or_observed_outputs)
+t_collocation.shape == (N_col, input_dim)
+```
+
+For standard ODE examples:
+
+```python
+t_data.shape == (N, 1)
+y_data.shape == (N, n_states)
+```
 
 ---
 
@@ -395,33 +426,44 @@ def residual_fn(ctx, t):
     }
 ```
 
-The context `ctx` contains:
+The context `ctx` contains the following fields.
 
 ### States
+
 ```python
 ctx["states"]["C1"]
 ctx["states"]["C2"]
 ```
 
 ### State derivatives
+
 ```python
 ctx["state_grads"]["C1"]
 ctx["state_grads"]["C2"]
 ```
 
 ### Constant parameters
+
 ```python
 ctx["constant_params"]["k10"]
 ```
 
 ### Time-varying parameters
+
 ```python
 ctx["time_varying_params"]["k12_tv"]
 ```
 
 ### All parameters
+
 ```python
 ctx["all_params"]
+```
+
+### Data bundle
+
+```python
+ctx["data_bundle"]
 ```
 
 Example:
@@ -448,16 +490,16 @@ def residual_fn(ctx, t):
 
 ## Feature expansion
 
-Configured through `FeatureConfig`.
-
-Examples:
+Feature expansion is configured through `FeatureConfig`.
 
 ### Identity
+
 ```python
 FeatureConfig(kind="identity")
 ```
 
 ### Sine/cosine features
+
 ```python
 FeatureConfig(
     kind="sincos",
@@ -468,6 +510,7 @@ FeatureConfig(
 ```
 
 ### Exponential features
+
 ```python
 FeatureConfig(
     kind="exp",
@@ -478,20 +521,19 @@ FeatureConfig(
 ```
 
 ### What `include_identity=True` means
-It keeps the original input itself in the feature vector.  
-So instead of only transformed features, the network receives:
-- original time/input
-- plus transformed features
 
-This is often safer and more expressive.
+It keeps the original input in the feature vector. The network receives the original time/input plus the transformed features.
+
+This is often safer and more expressive than using only transformed features.
 
 ---
 
 ## Architecture selection
 
-Configured through `ArchitectureConfig`.
+Architecture is configured through `ArchitectureConfig`.
 
 ### MLP
+
 ```python
 ArchitectureConfig(
     kind="mlp",
@@ -500,26 +542,29 @@ ArchitectureConfig(
 )
 ```
 
-### Chebyshev-KAN / PIKAN
+### Chebyshev-KAN / PIKAN-style KAN
+
+The current core library uses `kind="kan"` for the Chebyshev-KAN architecture.
+
 ```python
 ArchitectureConfig(
-    kind="chebyshev_kan",
+    kind="kan",
     hidden_layers=(12, 12, 12),
+    activation="tanh",
     chebyshev_degree=3,
 )
 ```
 
-Depending on your version, `kind="pikan"` may also be supported.
-
 ### Recommendation
-- start with **MLP**
-- move to **PIKAN** only after the problem works
+
+Start with `mlp`. Once the problem, residual, and loss weights are working, switch to `kan` for comparison.
 
 ---
 
 ## Constant and time-varying parameters
 
 ### Constant parameter
+
 ```python
 ParameterSpec(
     name="k10",
@@ -530,6 +575,7 @@ ParameterSpec(
 ```
 
 ### Time-varying parameter
+
 ```python
 ParameterSpec(
     name="k12_tv",
@@ -539,53 +585,86 @@ ParameterSpec(
 )
 ```
 
-If states are `["C1", "C2"]`, then:
-- output 0 -> `C1`
-- output 1 -> `C2`
-- output 2 -> `k12_tv`
+If states are:
+
+```python
+state_names=["C1", "C2"]
+```
+
+then:
+
+```text
+network output 0 -> C1
+network output 1 -> C2
+network output 2 -> k12_tv
+```
+
+Time-varying parameters must use output indices greater than or equal to the number of states.
 
 ---
 
 ## Partial observations
 
-PhINs supports the case where only part of the state vector is observed.
+The built-in `data` loss compares all configured states against `y_data`. If you observe only part of the state vector, set the default `data` loss to zero and define a custom extra loss.
 
 Example:
-- model states = `["C1", "C2"]`
-- data only for `C1`
 
-A clean way is to use a custom data loss:
+- model states: `C1`, `C2`
+- observed data: only `C1`
 
 ```python
 def extra_data_loss_fn(ctx, db):
     C1_pred = ctx["states"]["C1"]
     return {
-        "data_C1": jnp.mean((C1_pred - db.y_data) ** 2)
+        "data_C1": jnp.mean((C1_pred - db.y_data) ** 2),
     }
 ```
 
-and then set:
+Then use:
 
 ```python
-loss_weights = {
+problem = PINNProblem(
+    config=cfg,
+    residual_fn=residual_fn,
+    data_bundle=bundle,
+    extra_data_loss_fn=extra_data_loss_fn,
+)
+```
+
+and set:
+
+```python
+loss_weights={
     "data": 0.0,
     "data_C1": 1.0,
+    "ic": 1.0,
     "ode_C1": 1.0,
     "ode_C2": 1.0,
+    "residual": 0.0,
 }
 ```
 
-This is one of the most common workflows in PK/PD/QSP use cases.
+This is common in PK/PD/QSP examples where not every latent state is observed.
 
 ---
 
 ## Constraints and bounded mappings
 
-PhINs supports simple parameter constraints directly through `ParameterSpec`, but for many inverse problems a **manual bounded mapping** inside the residual is better.
+PhINs supports simple constraints directly through `ParameterSpec`.
+
+```python
+constraint="none"
+constraint="positive_softplus"
+constraint="positive_exp"
+```
+
+For many inverse problems, a manual bounded mapping inside the residual is better.
 
 Example: bounded time-varying `k12(t)` in a known range:
 
 ```python
+import jax
+
 def map_raw_to_k12(raw):
     k12_min = 0.05
     k12_max = 0.35
@@ -607,14 +686,13 @@ This is often more stable than learning the raw parameter directly.
 
 PhINs uses named loss terms.
 
-Typical examples:
+Common names include:
+
 - `data`
 - `ic`
 - `residual`
-- `ode_C1`
-- `ode_C2`
-- `data_C1`
-- custom terms like `fd0`
+- residual names such as `ode_C1`, `ode_C2`
+- custom losses such as `data_C1` or `fd0`
 
 Example:
 
@@ -629,21 +707,32 @@ loss_weights={
 }
 ```
 
-### Recommendation
-- use explicit term weights
-- keep `residual=0.0` if you are already weighting residual subterms individually
+### Important note about `residual`
+
+The library creates both:
+
+- individual residual terms, such as `ode_C1` and `ode_C2`
+- an aggregate residual term called `residual`
+
+If you already weight the individual residual terms, usually set:
+
+```python
+"residual": 0.0
+```
+
+Otherwise, residual losses may be counted twice.
 
 ---
 
-## RBA
+## Residual-based attention
 
-If your current version includes RBA support, you can enable it through `RBAConfig`.
+Residual-based attention, or RBA, applies adaptive pointwise weights inside residual terms.
 
 ```python
 from phins import RBAConfig
 ```
 
-Then:
+Example:
 
 ```python
 training=TrainingConfig(
@@ -668,31 +757,40 @@ training=TrainingConfig(
 ```
 
 ### What RBA does
-RBA applies adaptive weights **inside a residual term**, typically pointwise over collocation residuals.
 
-This is different from ordinary scalar loss weights.
+RBA reweights residual points according to their residual magnitude. This helps the model focus on regions where the physics residual is harder to satisfy.
 
 ### Best use
+
 Use RBA for:
+
 - ODE residual terms
 - PDE residual terms
+- stiff or localized residual errors
 
-Do **not** usually use it for:
+Do not usually use it for:
+
 - data loss
-- IC loss
+- initial-condition loss
 - anchor losses
 
 ---
 
 ## Adaptive loss weighting
 
-If your version includes adaptive loss weighting across terms, import:
+Adaptive loss weighting rebalances scalar weights between different loss terms.
 
 ```python
 from phins import AdaptiveWeightConfig
 ```
 
-Then:
+The current core implementation supports:
+
+```python
+method="inverse_loss"
+```
+
+Example:
 
 ```python
 training=TrainingConfig(
@@ -707,15 +805,22 @@ training=TrainingConfig(
     adaptive_weights=AdaptiveWeightConfig(
         enabled=True,
         target_terms=["data_C1", "ode_C1", "ode_C2", "fd0"],
-        method="loss_ratio",
+        method="inverse_loss",
         update_every=100,
         gamma=0.9,
+        eps=1e-8,
+        init_value=1.0,
+        normalize_sum_to=1.0,
     ),
 )
 ```
 
-### What it does
-Adaptive weighting rebalances **between loss terms**, while RBA rebalances **within a residual term**.
+### Difference between adaptive weighting and RBA
+
+- Adaptive loss weighting rebalances between loss terms.
+- RBA rebalances within a residual term, point by point.
+
+They can be used separately or together.
 
 ---
 
@@ -724,44 +829,59 @@ Adaptive weighting rebalances **between loss terms**, while RBA rebalances **wit
 PhINs is suited for examples such as:
 
 ### Example 1: inverse ODE with unknown constants
-Learn `kg`, `kb` in a 3-state compartment model.
+
+Learn unknown rate parameters such as `kg` and `kb` in a compartment model.
 
 ### Example 2: gray-box unknown RHS function
+
 Learn an unknown function `f(t)` appearing in one ODE equation.
 
 ### Example 3: PK/PD with time-varying transfer or absorption
-Learn `k12(t)` or `ka(t)` while preserving mechanistic compartments.
+
+Learn `k12(t)` or `ka(t)` while preserving mechanistic compartment structure.
 
 ### Example 4: hidden dynamic factor
-Learn a hidden forcing or growth modulation term such as `FD(t)`.
 
-### Example 5: MLP vs PIKAN comparison
+Learn a hidden forcing or growth-modulation term such as `FD(t)`.
+
+### Example 5: MLP vs KAN comparison
+
 Solve the same inverse problem with both architectures.
 
 ---
 
 ## Colab / Google Drive notes
 
-If using Google Colab:
+If using Google Colab, install packages first:
 
-### Install packages first
 ```bash
 pip install jax jaxlib optax numpy scipy matplotlib pandas
 ```
 
 ### Prefer running from local `/content`
-Google Drive is much slower than local disk in Colab.
 
-A faster workflow is:
+Google Drive is slower than local disk in Colab. A faster workflow is:
+
 1. copy your repository from Drive to `/content`
 2. run there
 3. copy results back to Drive
 
-### Example
+Example:
+
 ```python
-!cp -r /content/drive/MyDrive/Phins /content/Phins
+from google.colab import drive
+drive.mount('/content/drive')
+
+!cp -r /content/drive/MyDrive/PhINs /content/PhINs
+
 import sys
-sys.path.append('/content/Phins')
+sys.path.append('/content/PhINs')
+```
+
+Then:
+
+```python
+import phins
 ```
 
 ---
@@ -769,13 +889,14 @@ sys.path.append('/content/Phins')
 ## Current status
 
 PhINs is best described as a **research software library**:
+
 - flexible
 - easy to customize
 - useful for inverse scientific ML
 - especially good for ODE/PINN/gray-box experimentation
 
-It is not intended to be a rigid black-box framework.  
-It is designed for users who want to control:
+It is not intended to be a rigid black-box framework. It is designed for users who want to control:
+
 - the residual
 - the outputs
 - the constraints
@@ -787,39 +908,45 @@ It is designed for users who want to control:
 ## Practical advice
 
 ### Start simple
+
 Before using:
-- PIKAN
-- exp features
-- RBA
-- adaptive weighting
+
+- KAN
+- exponential features
+- residual-based attention
+- adaptive loss weighting
 
 first make sure the problem works with:
+
 - MLP
 - identity features
 - moderate collocation count
 - short training
 
 ### Good progression
-1. MLP + identity  
-2. add bounded parameter mapping  
-3. add exp/sincos features if needed  
-4. add RBA  
-5. add adaptive loss weighting  
-6. try PIKAN  
+
+1. MLP + identity
+2. add bounded parameter mapping if needed
+3. add `sincos` or `exp` features if needed
+4. add RBA
+5. add adaptive loss weighting
+6. try KAN
 
 ---
 
 ## Citation / acknowledgement
 
-If you use PhINs in your research, please cite the associated tutorial / methodological papers from this project when available.
+If you use PhINs in your research, please cite the associated tutorial or methodological papers from this project when available.
 
 ---
 
 ## Contributing
 
 Issues, example contributions, and pull requests are welcome, especially for:
+
 - pharmacometrics
 - systems biology
 - gray-box scientific ML
 - improved examples
 - training-speed improvements
+
