@@ -2,6 +2,7 @@
 <p align="center">
   <img src="./PhINs.png" alt="PhINs workflow" width="850"/>
 </p>
+
 **PhINs** is a research library for Physics-Informed Neural Networks (PINNs) and Chebyshev-KAN / PIKAN-style models for inverse problems, gray-box discovery, hidden mechanism recovery, and mechanistic learning from sparse or partially observed data.
 
 ## Current API summary
