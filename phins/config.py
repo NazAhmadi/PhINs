@@ -10,6 +10,7 @@ ActivationType = Literal['tanh', 'sin', 'relu', 'gelu', 'softplus']
 OptimizerType = Literal['adam', 'adamw', 'radam', 'adamax', 'rmsprop', 'sgd']
 SchedulerType = Literal['none', 'cosine', 'exponential', 'piecewise']
 ConstraintType = Literal['none', 'positive_softplus', 'positive_exp']
+CollocationSamplingType = Literal['fixed', 'uniform_random']
 
 
 @dataclass
@@ -25,7 +26,7 @@ class ArchitectureConfig:
     kind: ArchitectureType = 'mlp'
     hidden_layers: Sequence[int] = (64, 64, 64)
     activation: ActivationType = 'tanh'
-    output_dim: int = 1
+    output_dim: int = 1  # kept for backward compatibility; trainer infers required output dim
     chebyshev_degree: int = 3
 
 
@@ -38,7 +39,6 @@ class ParameterSpec:
     output_index: Optional[int] = None
 
 
-# THIS PART IS ADDED: optional residual-based attention (RBA) config.
 @dataclass
 class RBAConfig:
     enabled: bool = False
@@ -50,7 +50,6 @@ class RBAConfig:
     normalize_by_max: bool = True
 
 
-# THIS PART IS ADDED: optional adaptive weighting across loss terms.
 @dataclass
 class AdaptiveWeightConfig:
     enabled: bool = False
@@ -64,6 +63,26 @@ class AdaptiveWeightConfig:
 
 
 @dataclass
+class CollocationConfig:
+    """Controls collocation-point generation.
+
+    sampling='fixed': use PINNDataBundle.t_collocation exactly as before.
+    sampling='uniform_random': resample collocation points during training.
+
+    domain can be:
+      - (t_min, t_max) for one-dimensional inputs
+      - ((x1_min, x1_max), ..., (xd_min, xd_max)) for multi-dimensional inputs
+
+    If domain is None and sampling='uniform_random', the trainer infers bounds from
+    t_collocation first, then t_data.
+    """
+    sampling: CollocationSamplingType = 'fixed'
+    domain: Optional[Tuple] = None
+    n_points: int = 256
+    resample_every: int = 1
+
+
+@dataclass
 class TrainingConfig:
     epochs: int = 10_000
     learning_rate: float = 1e-3
@@ -73,7 +92,6 @@ class TrainingConfig:
     loss_weights: Dict[str, float] = field(default_factory=lambda: {'data': 1.0, 'residual': 1.0, 'ic': 1.0})
     print_every: int = 500
     seed: int = 0
-    # THIS PART IS ADDED: optional adaptive term weighting and RBA.
     adaptive_weights: AdaptiveWeightConfig | None = None
     rba: RBAConfig | None = None
 
@@ -84,6 +102,7 @@ class DataConfig:
     state_names: Sequence[str] = field(default_factory=list)
     parameter_specs: Sequence[ParameterSpec] = field(default_factory=list)
     collocation_shape: Tuple[int, ...] = (256, 1)
+    collocation: CollocationConfig = field(default_factory=CollocationConfig)
 
 
 @dataclass
