@@ -24,7 +24,6 @@ def get_activation(name: str) -> Callable[[Array], Array]:
     table = {
         'tanh': jax.nn.tanh,
         'sin': jnp.sin,
-        'relu': jax.nn.relu,
         'gelu': jax.nn.gelu,
         'softplus': jax.nn.softplus,
     }
