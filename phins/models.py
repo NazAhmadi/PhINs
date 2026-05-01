@@ -5,8 +5,6 @@ Network Architectures for PhINs
 Supports:
 1. Standard MLPs (Multi-Layer Perceptrons)
 2. KANs (Kolmogorov-Arnold Networks) using Chebyshev polynomials
-
-Based on successful implementations from chemotherapy gray-box discovery models.
 """
 
 from dataclasses import dataclass
