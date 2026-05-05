@@ -90,16 +90,4 @@ Runs:
 - adaptive weighting
 - prediction
 
----
-
-## How the library works
-
-The core workflow is:
-
-```python
-problem = PINNProblem(config, residual_fn, data_bundle)
-trainer = PINNTrainer(problem)
-result = trainer.fit()
-pred = trainer.predict(t_test)
-```
 
