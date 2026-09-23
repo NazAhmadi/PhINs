@@ -1060,6 +1060,7 @@ DOI: https://doi.org/10.1002/psp4.70343
   doi     = {10.1002/psp4.70343},
   url     = {https://doi.org/10.1002/psp4.70343}
 }
+```
 ---
 
 ## Contributing
