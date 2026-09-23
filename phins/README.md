@@ -1,12 +1,10 @@
-# Coming Soon
+# PhINs
 
-This section will be uploaded upon acceptance of the tutorial manuscript.
-
-Stay tuned — it will be available soon!
+PhINs (Pharmacometrics-Informed Networks) is a JAX-based library for physics-informed learning in pharmacometrics and quantitative systems pharmacology.
 
 ## Package structure
 
-A typical layout is:
+The core package is organized as:
 
 ```text
 phins/
@@ -64,6 +62,15 @@ Handles:
 - positivity constraints
 - validation of time-varying parameter output indices
 
+#### `data.py`
+
+Defines the `PINNDataBundle` for storing:
+
+- observation data
+- initial conditions
+- collocation points
+- optional metadata
+
 #### `problem.py`
 
 Builds:
@@ -73,11 +80,18 @@ Builds:
 - residual terms
 - optional extra losses
 - context dictionaries for residual functions
-- state derivatives using a Jacobian-based computation, while preserving the old `ctx["state_grads"][state_name]` API
+- state derivatives using a Jacobian-based computation while preserving the `ctx["state_grads"][state_name]` API
 
 #### `samplers.py`
 
 Implements collocation sampling utilities, including uniform random collocation points over a user-defined domain.
+
+#### `optim.py`
+
+Implements:
+
+- optimizer construction
+- learning-rate schedules
 
 #### `trainer.py`
 
@@ -89,5 +103,3 @@ Runs:
 - residual-based attention
 - adaptive weighting
 - prediction
-
-
