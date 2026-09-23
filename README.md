@@ -1037,10 +1037,29 @@ first make sure the problem works with:
 
 ---
 
-## Citation / acknowledgement
+## Citation
 
-If you use PhINs in your research, please cite the associated tutorial or methodological papers from this project when available.
+If you use PhINs in your research, please cite:
 
+Nazanin Ahmadi Daryakenari and Mohammad Kohandel,  
+**“A Practical Tutorial on Physics-Informed Networks for Pharmacometrics and Quantitative Systems Pharmacology.”**  
+*CPT: Pharmacometrics & Systems Pharmacology*, 2026, 15(10):e70343.  
+DOI: https://doi.org/10.1002/psp4.70343
+
+### BibTeX
+
+```bibtex
+@article{ahmadidaryakenari2026practical,
+  author  = {Ahmadi Daryakenari, Nazanin and Kohandel, Mohammad},
+  title   = {A Practical Tutorial on Physics-Informed Networks for Pharmacometrics and Quantitative Systems Pharmacology},
+  journal = {CPT: Pharmacometrics \& Systems Pharmacology},
+  year    = {2026},
+  volume  = {15},
+  number  = {10},
+  pages   = {e70343},
+  doi     = {10.1002/psp4.70343},
+  url     = {https://doi.org/10.1002/psp4.70343}
+}
 ---
 
 ## Contributing
